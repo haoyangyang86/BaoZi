@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             expectedWinRate = global_win_rate;
             resultHTML += `<p><b>【无精准匹配】</b>历史上从未出现过此“连黑-赔率”组合。</p>`;
-            resultHTML += `<p><b>胜率期望:</b> 无法提供精准胜率，将使用全局平均胜率 <b>${(expectedWinRate * 100).toFixed(2)}%</b> 作为最保守的估计。</p>`;
+            resultHTML += `<p><b>胜率期望:</b> 无法提供精准胜率，将使用全局平均胜率 <b>${(expectedWinrate * 100).toFixed(2)}%</b> 作为最保守的估计。</p>`;
         }
         
         const evPerBet = expectedWinRate * (todayOdds - 1) - (1 - expectedWinRate) * 1;
