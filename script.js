@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             knowledgeBase = data;
             console.log('知识库与统计报告已成功加载！');
-            // 数据加载后，渲染统计报告
+            // 【新增】数据加载后，渲染统计报告
             if (data.statistics) {
                 renderReport(data.statistics);
             }
@@ -38,18 +38,105 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 3. 渲染统计报告的函数 (此部分为可选的报告展示功能) ---
+    // --- 3. 渲染统计报告的函数 (完整实现) ---
     function renderReport(stats) {
         if (!stats) return;
         let html = `<h2>历史数据分析报告</h2>`;
-        // 此处省略了之前版本中生成报告的详细HTML代码，以保持简洁。
-        // 如果您需要报告功能，请确保此处的HTML生成逻辑是完整的。
-        // 为了解决核心问题，我们暂时简化。
-        html += `<p>报告数据已加载。</p>`;
+
+        // 基础概览
+        html += `
+            <div class="report-section">
+                <h3>1. 基础数据概览</h3>
+                <div class="stats-grid">
+                    <div class="stat-card"><span class="stat-card-title">总数据期数</span><span class="stat-card-value">${stats.overview.total_periods}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">总中奖次数</span><span class="stat-card-value">${stats.overview.num_wins}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">总未中奖次数</span><span class="stat-card-value">${stats.overview.num_losses}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">总体中奖率</span><span class="stat-card-value">${(stats.overview.win_rate * 100).toFixed(2)}<small>%</small></span></div>
+                </div>
+            </div>`;
+        
+        // 赔率分析
+        html += `
+            <div class="report-section">
+                <h3>2. 赔率统计分析</h3>
+                <h4>全部数据</h4>
+                <div class="stats-grid">
+                    <div class="stat-card"><span class="stat-card-title">平均赔率</span><span class="stat-card-value">${stats.odds.all.mean.toFixed(2)}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">最高赔率</span><span class="stat-card-value">${stats.odds.all.max.toFixed(2)}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">最低赔率</span><span class="stat-card-value">${stats.odds.all.min.toFixed(2)}</span></div>
+                </div>
+                 <h4>中奖时</h4>
+                <div class="stats-grid">
+                    <div class="stat-card"><span class="stat-card-title">平均赔率</span><span class="stat-card-value">${stats.odds.win.mean.toFixed(2)}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">最高赔率</span><span class="stat-card-value">${stats.odds.win.max.toFixed(2)}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">最低赔率</span><span class="stat-card-value">${stats.odds.win.min.toFixed(2)}</span></div>
+                </div>
+            </div>`;
+
+        // 连黑/连红分析
+        html += `
+            <div class="report-section">
+                <h3>3. 连黑 / 连红 分析</h3>
+                <div class="stats-grid">
+                    <div class="stat-card"><span class="stat-card-title">最长连黑</span><span class="stat-card-value">${stats.streaks.losing.max}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">平均连黑</span><span class="stat-card-value">${stats.streaks.losing.mean.toFixed(2)}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">最长连红</span><span class="stat-card-value">${stats.streaks.winning.max}</span></div>
+                    <div class="stat-card"><span class="stat-card-title">平均连红</span><span class="stat-card-value">${stats.streaks.winning.mean.toFixed(2)}</span></div>
+                </div>
+                <h4 style="margin-top: 25px;">连黑次数分布图</h4>
+                <canvas id="losingStreakChart"></canvas>
+            </div>`;
+
+        // 序列关联和期望值
+        html += `
+            <div class="report-section">
+                <h3>4. 核心概率与期望值</h3>
+                 <div class="stats-grid">
+                    <div class="stat-card"><span class="stat-card-title">黑转红概率</span><span class="stat-card-value">${(stats.sequence.prob_win_after_loss * 100).toFixed(2)}<small>%</small></span></div>
+                    <div class="stat-card"><span class="stat-card-title">红转红概率</span><span class="stat-card-value">${(stats.sequence.prob_win_after_win * 100).toFixed(2)}<small>%</small></span></div>
+                    <div class="stat-card"><span class="stat-card-title">基础数学期望</span><span class="stat-card-value">${stats.ev.ev_per_bet.toFixed(4)}</span></div>
+                </div>
+            </div>`;
+
         reportContainer.innerHTML = html;
+
+        // 渲染图表
+        renderCharts(stats);
     }
     
-    // --- 4. 核心分析函数 ---
+    // --- 4. 渲染图表的函数 ---
+    function renderCharts(stats) {
+        // 确保图表容器存在
+        const streakCtx = document.getElementById('losingStreakChart');
+        if (!streakCtx) return;
+
+        new Chart(streakCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: stats.streaks.losing_dist.lengths,
+                datasets: [{
+                    label: '发生频率',
+                    data: stats.streaks.losing_dist.counts,
+                    backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                    borderColor: 'rgba(41, 128, 185, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: '发生次数' } },
+                    x: { title: { display: true, text: '连黑长度' } }
+                },
+                plugins: {
+                    legend: {
+                        display: false // 图例只有一个，可以不显示
+                    }
+                }
+            }
+        });
+    }
+
+    // --- 5. 核心分析函数 (与之前版本相同) ---
     function performAnalysis() {
         if (!knowledgeBase) {
             alert('知识库尚未加载完成或加载失败，请刷新页面重试。');
@@ -64,11 +151,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { knowledge_base, bin_edges, bin_names, global_win_rate } = knowledgeBase;
 
-        // 查找赔率区间的ID (更清晰的逻辑)
-        let todayOddsBinId = bin_names.length; // 默认是最后一个区间
+        let todayOddsBinId = bin_names.length;
         for (let i = 0; i < bin_edges.length - 1; i++) {
             if (todayOdds >= bin_edges[i] && todayOdds < bin_edges[i + 1]) {
-                todayOddsBinId = i + 1; // 区间ID从1开始
+                todayOddsBinId = i + 1;
                 break;
             }
         }
@@ -93,7 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             expectedWinRate = global_win_rate;
             resultHTML += `<p><b>【无精准匹配】</b>历史上从未出现过此“连黑-赔率”组合。</p>`;
-            // 【修正】修复了这里的拼写错误
             resultHTML += `<p><b>胜率期望:</b> 无法提供精准胜率，将使用全局平均胜率 <b>${(expectedWinRate * 100).toFixed(2)}%</b> 作为最保守的估计。</p>`;
         }
         
@@ -107,6 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else { resultHTML += `<p class="rating star1">【评级】: ★☆☆☆☆ (规避风险 | 离场)</p>`; }
 
         resultContainer.innerHTML = resultHTML;
-        resultContainer.style.display = 'block'; // 确保结果容器可见
+        resultContainer.classList.remove('hidden'); // 使用 classList.remove 替代 style.display
     }
 });
